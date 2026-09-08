@@ -77,7 +77,7 @@ export function GigsPage() {
 
   return (
     <div className="dashboard">
-      <header className="dashboard__header">
+      <header className="dashboard__header dashboard__header--hero">
         <div>
           <h1 className="dashboard__title">
             Unlock Your <em>Campus Gig!</em>

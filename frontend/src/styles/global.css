@@ -208,6 +208,11 @@ a:hover {
 
 .field {
   display: grid;
+  /* Without this, align-content's grid default of "stretch" inflates this
+     field's own rows (e.g. the input) to fill any extra height a taller
+     sibling forces onto it in a .form__row pair — e.g. one field carrying a
+     hint line and the other not. */
+  align-content: start;
   gap: 7px;
 }
 
@@ -418,9 +423,10 @@ select.field__input {
   gap: 28px;
   padding: 34px;
   border-radius: var(--radius-xl);
-  /* Frosted glass over the mesh. */
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  /* A dark glass panel (not a light one) so white text stays readable no
+     matter how vivid or faint the mesh happens to render behind it. */
+  background: rgba(16, 13, 28, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   backdrop-filter: blur(26px) saturate(1.3);
   -webkit-backdrop-filter: blur(26px) saturate(1.3);
   box-shadow: 0 30px 80px rgba(38, 15, 60, 0.32);
@@ -1001,6 +1007,7 @@ select.field__input {
 
 .dashboard {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
 }
 
@@ -1010,6 +1017,45 @@ select.field__input {
   justify-content: space-between;
   gap: 20px;
   flex-wrap: wrap;
+}
+
+/* The home page is the one screen with no dedicated hero treatment — auth
+   gets the gradient mesh, gig details gets the dark banner, this got plain
+   text on the page background. A soft gradient card gives it the same
+   anchored, premium feel without competing with the dark screens. */
+.dashboard__header--hero {
+  position: relative;
+  overflow: hidden;
+  padding: 30px clamp(20px, 4vw, 40px);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, #f3ecff 0%, #fdf1ff 48%, #fff1ea 100%);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard__header--hero::before,
+.dashboard__header--hero::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.dashboard__header--hero::before {
+  top: -90px;
+  right: -60px;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(109, 59, 245, 0.16), transparent 70%);
+}
+
+.dashboard__header--hero::after {
+  bottom: -110px;
+  left: -50px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(242, 131, 107, 0.16), transparent 70%);
 }
 
 .dashboard__title {
@@ -1101,47 +1147,42 @@ select.field__input {
 }
 
 .category-card {
+  position: relative;
   flex: none;
-  width: 148px;
-  display: grid;
-  gap: 10px;
-  justify-items: center;
-  padding: 16px 12px;
+  width: 190px;
+  height: 132px;
+  overflow: hidden;
   font: inherit;
-  text-align: center;
-  color: var(--ink);
-  background: linear-gradient(160deg, #ffffff, #f6f1ff);
-  border: 1px solid var(--line);
+  color: #fff;
+  background-color: var(--violet-tint);
+  background-image: linear-gradient(to top, rgba(10, 8, 22, 0.86) 0%, rgba(10, 8, 22, 0.1) 62%, transparent 85%),
+    var(--category-image);
+  background-size: cover;
+  background-position: center;
+  border: 2px solid transparent;
   border-radius: 18px;
   cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .category-card:hover {
-  border-color: var(--violet);
-  box-shadow: 0 10px 26px rgba(109, 59, 245, 0.16);
+  box-shadow: 0 12px 28px rgba(20, 18, 28, 0.2);
 }
 
 .category-card--active {
   border-color: var(--violet);
-  background: linear-gradient(160deg, var(--violet-tint), #ffeee8);
-  box-shadow: 0 10px 26px rgba(109, 59, 245, 0.2);
-}
-
-.category-card__emoji {
-  font-size: 30px;
-  line-height: 1;
+  box-shadow: 0 0 0 3px var(--violet-tint), 0 12px 28px rgba(109, 59, 245, 0.28);
 }
 
 .category-card__label {
-  font-size: 13px;
-  font-weight: 700;
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 12px;
+  font-size: 15px;
+  font-weight: 800;
   line-height: 1.25;
-}
-
-.category-card__count {
-  font-size: 11.5px;
-  color: var(--ink-faint);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 /* --- filters ------------------------------------------------------------ */
@@ -1744,7 +1785,9 @@ select.field__input {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 20px;
-  align-items: start;
+  /* Stretch (the default) rather than start: a short description next to a
+     tall summary/apply sidebar would otherwise leave the left column's card
+     ending early and a slab of bare page background hanging below it. */
 }
 
 .gig-details__left {
@@ -1754,6 +1797,10 @@ select.field__input {
 
 .gig-details__scope {
   display: grid;
+  /* Keep the heading tight against its text even once the panel itself is
+     stretched taller — otherwise the leftover height splits evenly between
+     every row, prying the "SCOPE" label away from the paragraph under it. */
+  align-content: start;
   gap: 13px;
   padding: 26px;
   background: var(--surface);
@@ -1806,11 +1853,20 @@ select.field__input {
   gap: 22px;
 }
 
+/* Two independent columns rather than a shared grid: identity + account
+   details naturally run shorter than about + resume, and a shared grid row
+   would reserve the taller column's height in the shorter one's empty cell,
+   leaving a dead block of whitespace. */
 .profile__grid {
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 18px;
-  align-items: start;
+}
+
+.profile__col {
+  display: grid;
+  gap: 18px;
+  align-content: start;
 }
 
 .panel {
@@ -1944,6 +2000,12 @@ select.field__input {
     padding-bottom: 48px;
   }
 
+  /* The sidebar already has a permanent "Post a gig" button at this width,
+     so the floating action button would just be a second, redundant CTA. */
+  .fab {
+    display: none;
+  }
+
   .auth-shell {
     grid-template-columns: 1fr 1fr;
   }
@@ -1953,11 +2015,18 @@ select.field__input {
   }
 
   .profile__grid {
-    grid-template-columns: 330px minmax(0, 1fr);
+    flex-direction: row;
+    align-items: start;
   }
 
-  .profile__identity {
-    grid-row: span 2;
+  .profile__col--side {
+    width: 330px;
+    flex: none;
+  }
+
+  .profile__col--main {
+    flex: 1;
+    min-width: 0;
   }
 
   .gig-details__body {
@@ -1978,6 +2047,20 @@ select.field__input {
 @media (max-width: 639px) {
   .form__row {
     grid-template-columns: 1fr;
+  }
+
+  /* Brand, avatar and logout crowd a single row at phone widths, leaving the
+     search input too narrow to use — give search its own full-width row. */
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .topbar__search {
+    order: 3;
+    flex-basis: 100%;
+    max-width: none;
+    margin: 0;
   }
 
   .fab {

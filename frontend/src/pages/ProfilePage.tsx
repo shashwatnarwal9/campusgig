@@ -102,145 +102,147 @@ export function ProfilePage() {
       {problem ? <Alert tone="error">{problem}</Alert> : null}
 
       <div className="profile__grid">
-        <motion.section
-          className="panel profile__identity"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.24 }}
-        >
-          <div className="avatar-block">
-            {avatar ? (
-              <img className="avatar-block__image" src={avatar} alt="Your profile picture" />
-            ) : (
-              <span className="avatar-block__initials" aria-hidden="true">
-                {initials}
-              </span>
-            )}
-          </div>
+        <div className="profile__col profile__col--side">
+          <motion.section
+            className="panel profile__identity"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24 }}
+          >
+            <div className="avatar-block">
+              {avatar ? (
+                <img className="avatar-block__image" src={avatar} alt="Your profile picture" />
+              ) : (
+                <span className="avatar-block__initials" aria-hidden="true">
+                  {initials}
+                </span>
+              )}
+            </div>
 
-          <div className="avatar-block__actions">
+            <div className="avatar-block__actions">
+              <input
+                ref={avatarInput}
+                className="sr-only"
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                onChange={pickFile('avatar')}
+              />
+              <Button
+                variant="secondary"
+                onClick={() => avatarInput.current?.click()}
+                loading={uploading === 'avatar'}
+              >
+                {avatar ? 'Change picture' : 'Upload picture'}
+              </Button>
+              <p className="field__hint">JPEG, PNG, GIF or WEBP. Up to 2 MB.</p>
+            </div>
+
+            <h2 className="profile__name">{profile.roll_no}</h2>
+            <p className="profile__meta">
+              {profile.dept} &middot; Batch {profile.batch}
+            </p>
+          </motion.section>
+
+          <motion.section
+            className="panel"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, delay: 0.15 }}
+          >
+            <h2 className="panel__title">Account details</h2>
+            <dl className="detail-list">
+              <div>
+                <dt>Institutional email</dt>
+                <dd>{profile.email}</dd>
+              </div>
+              <div>
+                <dt>Roll number</dt>
+                <dd>{profile.roll_no}</dd>
+              </div>
+              <div>
+                <dt>Department</dt>
+                <dd>{profile.dept}</dd>
+              </div>
+              <div>
+                <dt>Batch</dt>
+                <dd>{profile.batch}</dd>
+              </div>
+              <div>
+                <dt>Role</dt>
+                <dd>{profile.role === 'ADMIN' ? 'Administrator' : 'Student'}</dd>
+              </div>
+              <div>
+                <dt>Member since</dt>
+                <dd>{formatDate(profile.created_at ?? user?.created_at ?? '')}</dd>
+              </div>
+            </dl>
+            <p className="field__hint">These came from signup and cannot be edited yet.</p>
+          </motion.section>
+        </div>
+
+        <div className="profile__col profile__col--main">
+          <motion.section
+            className="panel"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, delay: 0.05 }}
+          >
+            <h2 className="panel__title">About you</h2>
+            <div className="field">
+              <label className="field__label" htmlFor="profile-bio">
+                Short description
+              </label>
+              <textarea
+                id="profile-bio"
+                className="field__input field__textarea"
+                rows={5}
+                maxLength={MAX_BIO}
+                placeholder="What you are good at, what kind of work you want, when you are free."
+                value={bio}
+                onChange={(event) => setBio(event.target.value)}
+              />
+              <p className="field__hint">
+                {bio.length}/{MAX_BIO}
+              </p>
+            </div>
+            <Button onClick={saveBio} loading={savingBio}>
+              Save
+            </Button>
+          </motion.section>
+
+          <motion.section
+            className="panel"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, delay: 0.1 }}
+          >
+            <h2 className="panel__title">Resume</h2>
+            {resume ? (
+              <p className="profile__resume">
+                <a href={resume} target="_blank" rel="noreferrer">
+                  View your uploaded resume (PDF)
+                </a>
+              </p>
+            ) : (
+              <p className="field__hint">No resume uploaded yet.</p>
+            )}
             <input
-              ref={avatarInput}
+              ref={resumeInput}
               className="sr-only"
               type="file"
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              onChange={pickFile('avatar')}
+              accept="application/pdf"
+              onChange={pickFile('resume')}
             />
             <Button
               variant="secondary"
-              onClick={() => avatarInput.current?.click()}
-              loading={uploading === 'avatar'}
+              onClick={() => resumeInput.current?.click()}
+              loading={uploading === 'resume'}
             >
-              {avatar ? 'Change picture' : 'Upload picture'}
+              {resume ? 'Replace resume' : 'Upload resume'}
             </Button>
-            <p className="field__hint">JPEG, PNG, GIF or WEBP. Up to 2 MB.</p>
-          </div>
-
-          <h2 className="profile__name">{profile.roll_no}</h2>
-          <p className="profile__meta">
-            {profile.dept} &middot; Batch {profile.batch}
-          </p>
-        </motion.section>
-
-        <motion.section
-          className="panel"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.24, delay: 0.05 }}
-        >
-          <h2 className="panel__title">About you</h2>
-          <div className="field">
-            <label className="field__label" htmlFor="profile-bio">
-              Short description
-            </label>
-            <textarea
-              id="profile-bio"
-              className="field__input field__textarea"
-              rows={5}
-              maxLength={MAX_BIO}
-              placeholder="What you are good at, what kind of work you want, when you are free."
-              value={bio}
-              onChange={(event) => setBio(event.target.value)}
-            />
-            <p className="field__hint">
-              {bio.length}/{MAX_BIO}
-            </p>
-          </div>
-          <Button onClick={saveBio} loading={savingBio}>
-            Save
-          </Button>
-        </motion.section>
-
-        <motion.section
-          className="panel"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.24, delay: 0.1 }}
-        >
-          <h2 className="panel__title">Resume</h2>
-          {resume ? (
-            <p className="profile__resume">
-              <a href={resume} target="_blank" rel="noreferrer">
-                View your uploaded resume (PDF)
-              </a>
-            </p>
-          ) : (
-            <p className="field__hint">No resume uploaded yet.</p>
-          )}
-          <input
-            ref={resumeInput}
-            className="sr-only"
-            type="file"
-            accept="application/pdf"
-            onChange={pickFile('resume')}
-          />
-          <Button
-            variant="secondary"
-            onClick={() => resumeInput.current?.click()}
-            loading={uploading === 'resume'}
-          >
-            {resume ? 'Replace resume' : 'Upload resume'}
-          </Button>
-          <p className="field__hint">PDF only. Up to 5 MB.</p>
-        </motion.section>
-
-        <motion.section
-          className="panel"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.24, delay: 0.15 }}
-        >
-          <h2 className="panel__title">Account details</h2>
-          <dl className="detail-list">
-            <div>
-              <dt>Institutional email</dt>
-              <dd>{profile.email}</dd>
-            </div>
-            <div>
-              <dt>Roll number</dt>
-              <dd>{profile.roll_no}</dd>
-            </div>
-            <div>
-              <dt>Department</dt>
-              <dd>{profile.dept}</dd>
-            </div>
-            <div>
-              <dt>Batch</dt>
-              <dd>{profile.batch}</dd>
-            </div>
-            <div>
-              <dt>Role</dt>
-              <dd>{profile.role === 'ADMIN' ? 'Administrator' : 'Student'}</dd>
-            </div>
-            <div>
-              <dt>Member since</dt>
-              <dd>{formatDate(profile.created_at ?? user?.created_at ?? '')}</dd>
-            </div>
-          </dl>
-          <p className="field__hint">
-            These came from signup and cannot be edited yet.
-          </p>
-        </motion.section>
+            <p className="field__hint">PDF only. Up to 5 MB.</p>
+          </motion.section>
+        </div>
       </div>
     </div>
   );

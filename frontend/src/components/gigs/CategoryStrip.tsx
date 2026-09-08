@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useRef } from 'react';
+import { type CSSProperties, useRef } from 'react';
 
 import { formatCategory } from '../../lib/format';
 import { GIG_CATEGORIES, type GigCategory } from '../../types/gig';
@@ -9,23 +9,26 @@ interface CategoryStripProps {
   onSelect: (category: GigCategory | '') => void;
 }
 
-const EMOJI: Record<GigCategory, string> = {
-  ACADEMIC_HELP: '📚',
-  DESIGN: '🎨',
-  DEVELOPMENT: '💻',
-  WRITING: '✍️',
-  TUTORING: '🧑‍🏫',
-  EVENTS: '🎪',
-  PHOTOGRAPHY: '📷',
-  OTHER: '✨',
+// Dropped in by hand at frontend/public/categories/ — see that folder's
+// README for the file list. Missing files just fall back to the flat
+// violet-tint background under the gradient scrim.
+const IMAGE: Record<GigCategory, string> = {
+  ACADEMIC_HELP: '/categories/academic-help.jpg',
+  DESIGN: '/categories/design.jpg',
+  DEVELOPMENT: '/categories/development.jpg',
+  WRITING: '/categories/writing.jpg',
+  TUTORING: '/categories/tutoring.jpg',
+  EVENTS: '/categories/events.jpg',
+  PHOTOGRAPHY: '/categories/photography.jpg',
+  OTHER: '/categories/others.jpg',
 };
 
-const CARDS: Array<{ value: GigCategory | ''; label: string; emoji: string }> = [
-  { value: '', label: 'All gigs', emoji: '🌐' },
+const CARDS: Array<{ value: GigCategory | ''; label: string; image: string }> = [
+  { value: '', label: 'All gigs', image: '/categories/all.jpg' },
   ...GIG_CATEGORIES.map((category) => ({
     value: category,
     label: formatCategory(category),
-    emoji: EMOJI[category],
+    image: IMAGE[category],
   })),
 ];
 
@@ -60,15 +63,13 @@ export function CategoryStrip({ active, onSelect }: CategoryStripProps) {
             key={card.value || 'all'}
             type="button"
             className={`category-card${active === card.value ? ' category-card--active' : ''}`}
+            style={{ '--category-image': `url(${card.image})` } as CSSProperties}
             onClick={() => onSelect(card.value)}
             aria-pressed={active === card.value}
             variants={{ hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0 } }}
             whileHover={{ y: -4 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
           >
-            <span className="category-card__emoji" aria-hidden="true">
-              {card.emoji}
-            </span>
             <span className="category-card__label">{card.label}</span>
           </motion.button>
         ))}
