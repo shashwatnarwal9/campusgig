@@ -1,0 +1,21 @@
+# Local development database only. Not a production deployment.
+# Use this if you do not already have PostgreSQL 15+ running.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: campusgig-db
+    environment:
+      POSTGRES_USER: campusgig
+      POSTGRES_PASSWORD: campusgig
+      POSTGRES_DB: campusgig
+    ports:
+      - "5434:5432"
+    volumes:
+      - campusgig-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U campusgig"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  campusgig-pgdata:
