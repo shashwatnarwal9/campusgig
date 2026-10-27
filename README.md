@@ -3,9 +3,9 @@
 A university-only gig marketplace for Thapar Institute. Only verified
 `@thapar.edu` accounts can register and use the platform.
 
-**Status: Milestone 1 implemented.**
-See [PROJECT_PLAN.md](PROJECT_PLAN.md) for milestones and
-[ARCHITECTURE.md](ARCHITECTURE.md) for the design.
+**Status: Milestones 1–4 implemented.**
+See [PROJECT_PLAN.md](docs/PROJECT_PLAN.md) for milestones and
+[ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
 ## What Milestone 1 does
 
@@ -26,12 +26,16 @@ A gig's detail page lets you apply with a message. If the gig is yours, you see
 the applicants instead and can accept, decline or mark the work complete;
 accepting closes the gig and declines the others.
 
+Milestone 4 adds contracts for accepted applications, with contract details and
+guarded status transitions. Payment, escrow, and ledger functionality remain
+future work.
+
 **Earnings are not payments.** The "earned" figure is the budget of gigs a poster
 marked complete. There is no escrow, ledger or payment gateway in this release and
 no money moves; the UI says so on the Applied page.
 
-Not included yet: bidding and counter-offers, contracts, escrow, ledger,
-deliverable uploads, disputes, ratings, reputation, admin tooling, payments.
+Not included yet: bidding and counter-offers, escrow, ledger, deliverable
+uploads, disputes, ratings, reputation, admin tooling, and payments.
 
 ## Stack
 
@@ -65,14 +69,14 @@ DATABASE_URL=postgresql+psycopg://campusgig:campusgig@localhost:5434/campusgig
 ### Backend
 
 ```bash
-cd backend
+cd code/backend
 python -m venv .venv
 .venv/Scripts/activate           # Windows;  source .venv/bin/activate on macOS/Linux
 pip install -e ".[dev]"
 cp .env.example .env             # then fill in real values
-alembic upgrade head
+python -m alembic upgrade head
 python -m app.seeds.seed_gigs    # optional, safe local demo data
-uvicorn app.main:app --reload --port 8000
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
 API docs at http://localhost:8000/docs.
@@ -108,7 +112,7 @@ process; rerunning the seeder intentionally will not reset it.
 ### Frontend
 
 ```bash
-cd frontend
+cd code/frontend
 npm install
 cp .env.example .env
 npm run dev                      # http://localhost:5173
@@ -118,11 +122,11 @@ npm run dev                      # http://localhost:5173
 
 ```bash
 # backend - creates and migrates a separate <db>_test database on first run
-cd backend
-.venv/Scripts/python.exe -m pytest -q
+cd code/backend
+.venv/bin/python -m pytest -q
 
 # frontend
-cd frontend
+cd code/frontend
 npm run typecheck && npm run lint && npm test && npm run build
 ```
 
@@ -131,8 +135,8 @@ real Alembic migrations, so schema drift is caught by the suite.
 
 ## Environment variables
 
-Full list with placeholder values lives in `backend/.env.example` and
-`frontend/.env.example`. Never commit a real `.env`.
+Full list with placeholder values lives in `code/backend/.env.example` and
+`code/frontend/.env.example`. Never commit a real `.env`.
 
 | Variable | Where | Purpose |
 |---|---|---|
@@ -150,8 +154,10 @@ Full list with placeholder values lives in `backend/.env.example` and
 ## Repository layout
 
 ```
-backend/    FastAPI app (api -> services -> repositories -> models), Alembic, tests
-frontend/   React + TypeScript SPA
+code/backend/   FastAPI app (api -> services -> repositories -> models), Alembic, tests
+code/frontend/  React + TypeScript SPA
+docs/           Architecture, project plan, and archived audit reports
+assets remain with the frontend that serves them; Compose, README and SRS stay at root.
 ```
 
-Detailed layout in [ARCHITECTURE.md](ARCHITECTURE.md#b-folder-structure).
+Detailed layout in [ARCHITECTURE.md](docs/ARCHITECTURE.md#b-folder-structure).
