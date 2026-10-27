@@ -1,243 +1,403 @@
-"""Development seed data.
+"""Add repeatable fictional demonstration data to the local development database.
 
-Run with:  python -m app.seeds.seed_gigs
-
-Refuses to run against a production environment. Never imported by the app.
+Run from ``backend`` with ``python -m app.seeds.seed_gigs``. New demo account
+passwords are entered interactively and are never written to source or printed.
+The operation only inserts missing records; it never resets or overwrites data.
 """
 
-import random
-import sys
+from __future__ import annotations
+
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from getpass import getpass
+from urllib.parse import urlsplit
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import hash_password
 from app.db.session import SessionLocal
+from app.models.application import Application, ApplicationStatus
 from app.models.gig import Gig, GigCategory, GigState
-from app.models.user import User
+from app.models.user import User, UserRole
+from app.schemas.auth import RegisterRequest
+from app.services import application_service, auth_service
 
-SEED_PASSWORD = "SeedPass123"
 
-POSTERS = [
-    ("aarav.mehta@thapar.edu", "102103001", "Computer Science", 2025),
-    ("isha.kapoor@thapar.edu", "102103002", "Electronics", 2024),
-    ("rohan.gill@thapar.edu", "102103003", "Mechanical", 2026),
-    ("neha.sharma@thapar.edu", "102103004", "Chemical", 2025),
-]
+@dataclass(frozen=True)
+class DemoAccount:
+    key: str
+    email: str
+    roll_no: str
+    department: str
+    batch: int
 
-GIGS = [
-    (
-        "Build a React landing page for our robotics club",
+
+@dataclass(frozen=True)
+class DemoGig:
+    title: str
+    category: GigCategory
+    description: str
+    budget: int
+    deadline_days: int
+    duration_days: int | None
+    closed: bool = False
+
+
+ACCOUNTS = (
+    DemoAccount("poster", "demo.poster@thapar.edu", "DEMO-POSTER-001", "CampusGig Demo", 2026),
+    DemoAccount(
+        "applicant1", "demo.applicant1@thapar.edu", "DEMO-APPLICANT-001", "CampusGig Demo", 2026
+    ),
+    DemoAccount(
+        "applicant2", "demo.applicant2@thapar.edu", "DEMO-APPLICANT-002", "CampusGig Demo", 2026
+    ),
+    DemoAccount(
+        "applicant3", "demo.applicant3@thapar.edu", "DEMO-APPLICANT-003", "CampusGig Demo", 2026
+    ),
+)
+
+GIGS = (
+    DemoGig(
+        "DEMO: React landing page for the robotics club",
         GigCategory.DEVELOPMENT,
-        "We need a single-page site for the robotics club with a hero section, an events "
-        "timeline, a sponsors strip and a contact form. Design is already done in Figma; "
-        "we need it built responsively and deployed. React or plain HTML/CSS both fine.",
-        4500,
-        12,
-    ),
-    (
-        "Poster and social media kit for Saturnalia",
-        GigCategory.DESIGN,
-        "Looking for a designer to produce one A2 print poster plus a matching set of six "
-        "Instagram posts and three story templates for our cultural fest. Brand colours and "
-        "the logo will be shared. Two revision rounds included.",
-        2500,
-        9,
-    ),
-    (
-        "Weekly Data Structures tutoring - second year",
-        GigCategory.TUTORING,
-        "Need help getting through trees, graphs and dynamic programming before end-sems. "
-        "Two sessions a week, one hour each, in the library or over a call. Looking for "
-        "someone who has already cleared the course with a good grade.",
-        3000,
-        20,
-    ),
-    (
-        "Proofread and format an 80-page thesis",
-        GigCategory.WRITING,
-        "Mechanical engineering thesis needs a careful language pass plus consistent IEEE "
-        "formatting for citations, figure captions and the table of contents. Document is "
-        "in Word. Track changes please.",
-        3500,
-        7,
-    ),
-    (
-        "Event photography for the inter-hostel sports meet",
-        GigCategory.PHOTOGRAPHY,
-        "Two-day sports meet, roughly six hours of shooting per day across the ground and "
-        "the indoor court. Need around 150 edited photos delivered within a week. You must "
-        "have your own camera body and a telephoto lens.",
-        6000,
-        15,
-    ),
-    (
-        "Help setting up a MATLAB simulation for control systems",
-        GigCategory.ACADEMIC_HELP,
-        "Stuck on a Simulink model for a PID controller assignment. Need someone to sit with "
-        "me for a couple of sessions, walk through the block diagram and help debug why the "
-        "step response is oscillating.",
-        1200,
+        "Build a responsive landing page for a fictional campus robotics club. The supplied brief "
+        "calls for an events section, project gallery, sponsor strip and accessible contact form. "
+        "Use React and document how another student can update the content.",
+        6500,
+        18,
         5,
     ),
-    (
-        "Volunteer coordination app for the NSS chapter",
-        GigCategory.DEVELOPMENT,
-        "Small internal tool: volunteers sign up for drives, coordinators mark attendance, "
-        "and we export a monthly report. Any stack is fine as long as it is easy to hand "
-        "over. Hosting will be handled by us.",
-        8000,
-        30,
-    ),
-    (
-        "Compere and run the schedule for a departmental tech talk",
-        GigCategory.EVENTS,
-        "Half-day event with four speakers. Need someone confident on stage to introduce "
-        "speakers, keep the schedule tight, and run the Q and A. Script will be provided a "
-        "week in advance.",
-        1500,
-        11,
-    ),
-    (
-        "Illustrate ten spot drawings for the campus magazine",
-        GigCategory.DESIGN,
-        "Black and white line illustrations, roughly postcard sized, to sit alongside student "
-        "essays. We will share the essays and a rough brief for each. Consistent style across "
-        "all ten matters more than complexity.",
-        4000,
-        18,
-    ),
-    (
-        "Transcribe and summarise twelve recorded lectures",
-        GigCategory.WRITING,
-        "Twelve recordings, about fifty minutes each. Need a clean transcript plus a one-page "
-        "summary of each lecture with the key formulas pulled out. Accuracy on technical terms "
-        "is the main thing.",
-        5000,
-        14,
-    ),
-    (
-        "Fix the CSS on our hostel mess feedback form",
-        GigCategory.DEVELOPMENT,
-        "The form works but looks broken on phones - overlapping labels, buttons off screen. "
-        "Small job, should be an evening's work for someone who knows flexbox. Codebase is "
-        "plain HTML and Bootstrap.",
-        900,
-        4,
-    ),
-    (
-        "Statistics doubt-clearing before the mid-semester",
+    DemoGig(
+        "DEMO: Python script to clean a lab survey dataset",
         GigCategory.ACADEMIC_HELP,
-        "Hypothesis testing and regression are not clicking. Looking for two or three focused "
-        "sessions with worked examples from previous years' papers.",
-        1800,
-        6,
-    ),
-    (
-        "Shoot and edit a two-minute club recruitment video",
-        GigCategory.PHOTOGRAPHY,
-        "Need a short recruitment film for the entrepreneurship cell: some b-roll around "
-        "campus, three short interviews, background music and subtitles. Script and shot list "
-        "will be ready before the shoot.",
-        7000,
-        21,
-    ),
-    (
-        "Design a pitch deck for our student startup",
-        GigCategory.DESIGN,
-        "Fifteen slides, content is written already. Need a clean visual system, simple charts "
-        "and consistent typography. Google Slides or PowerPoint, editable file handed over at "
-        "the end.",
+        "Write a small reproducible Python script that normalises column names, handles missing "
+        "values and reports duplicate rows in a fictional CSV survey. Include a short README and "
+        "a sample output; no real research data is involved.",
         3200,
-        10,
-    ),
-    (
-        "Run a two-session Git and GitHub workshop for first years",
-        GigCategory.EVENTS,
-        "Practical introduction to version control for about forty first-year students. Two "
-        "sessions of ninety minutes. Slides and exercises will need to be prepared; we can "
-        "provide the lab.",
-        2800,
-        16,
-    ),
-    (
-        "Miscellaneous help moving lab equipment",
-        GigCategory.OTHER,
-        "One afternoon of careful work moving instruments between two labs, packing and "
-        "labelling as we go. Two people needed, so apply with a partner if you have one.",
-        1000,
+        12,
         3,
     ),
-]
+    DemoGig(
+        "DEMO: Campus event poster and social graphics",
+        GigCategory.DESIGN,
+        "Create an A3 poster and a matching set of square and story-sized graphics for a fictional "
+        "student innovation evening. The brief includes the event details and a simple colour "
+        "palette. Supply editable source files and allow two rounds of feedback.",
+        2800,
+        14,
+        4,
+    ),
+    DemoGig(
+        "DEMO: Annotate a small machine-learning image dataset",
+        GigCategory.ACADEMIC_HELP,
+        "Label a fictional set of about 450 classroom object images using the provided category "
+        "guide. Flag uncertain examples instead of guessing, and return a CSV with image IDs and "
+        "labels. A short calibration batch will be reviewed first.",
+        4000,
+        21,
+        6,
+    ),
+    DemoGig(
+        "DEMO: Edit a short promotional video for a campus club",
+        GigCategory.PHOTOGRAPHY,
+        "Turn supplied, fictional club footage into a 60 to 90 second promotional cut with "
+        "captions, basic colour correction and royalty-free background audio. Deliver a web-ready "
+        "MP4 and one revision. No external publication is required.",
+        5200,
+        16,
+        4,
+    ),
+    DemoGig(
+        "DEMO: Improve queries for a student society database",
+        GigCategory.DEVELOPMENT,
+        "Review a small sample PostgreSQL schema for a fictional society membership tool. Suggest "
+        "indexes for three supplied slow queries and explain the trade-offs. Include before-and-"
+        "after "
+        "EXPLAIN output using generated sample data only.",
+        4800,
+        15,
+        3,
+    ),
+    DemoGig(
+        "DEMO: Build a portfolio website for a graduating student",
+        GigCategory.DEVELOPMENT,
+        "Create a clean responsive portfolio with project cards, a short profile and a contact "
+        "link. The fictional student will provide approved text and illustrations; the work should "
+        "include "
+        "mobile layout and keyboard-friendly navigation.",
+        7500,
+        24,
+        7,
+    ),
+    DemoGig(
+        "DEMO: Prepare a social media graphic pack for a fest",
+        GigCategory.DESIGN,
+        "Design five coordinated announcement graphics for a fictional university fest, with "
+        "square "
+        "and story variants. Keep text readable at phone size and deliver editable files plus PNG "
+        "exports in a shared folder.",
+        3600,
+        13,
+        4,
+    ),
+    DemoGig(
+        "DEMO: Create an Excel reporting dashboard for a club",
+        GigCategory.OTHER,
+        "Turn a generated sample attendance workbook into a simple Excel dashboard with monthly "
+        "totals, category filters and clearly labelled charts. Include a notes tab explaining how "
+        "to append future rows; no actual student data is supplied.",
+        3000,
+        10,
+        3,
+    ),
+    DemoGig(
+        "DEMO: Connect a club site to a public event API",
+        GigCategory.DEVELOPMENT,
+        "Add a small integration that reads public event records from a mock API and displays the "
+        "next three events on a fictional club page. Include loading and error states, and keep "
+        "any "
+        "API key out of the source code.",
+        5800,
+        20,
+        5,
+    ),
+    DemoGig(
+        "DEMO: Write setup documentation for a student project",
+        GigCategory.WRITING,
+        "Document installation, local configuration and common troubleshooting steps for a "
+        "fictional open-source student project. The maintainer will provide a repository and "
+        "review "
+        "for technical accuracy before completion.",
+        2400,
+        11,
+        3,
+    ),
+    DemoGig(
+        "DEMO: Photograph a mock campus entrepreneurship showcase",
+        GigCategory.PHOTOGRAPHY,
+        "Cover a fictional half-day showcase with room details, stage moments and posed team "
+        "photos. "
+        "Deliver around 60 edited images within five days. Participants will be informed that the "
+        "photos are for a demonstration brief.",
+        6800,
+        22,
+        4,
+    ),
+    DemoGig(
+        "DEMO: Tutor first-years in SQL and relational modelling",
+        GigCategory.TUTORING,
+        "Plan two small-group sessions on joins, keys and normalisation using an invented library "
+        "database example. Include practice questions and a short recap sheet; this is peer "
+        "learning, "
+        "not graded assignment completion.",
+        2200,
+        17,
+        2,
+    ),
+    DemoGig(
+        "DEMO: Coordinate volunteers for a mock campus workshop",
+        GigCategory.EVENTS,
+        "Prepare a volunteer rota and arrival checklist for a fictional one-day workshop. "
+        "Coordinate four roles, confirm room setup requirements and provide a short post-event "
+        "summary template.",
+        2600,
+        19,
+        3,
+    ),
+    DemoGig(
+        "DEMO: Archived poster design brief for a past club meetup",
+        GigCategory.DESIGN,
+        "This clearly fictional sample gig is closed so the poster can demonstrate closed-state "
+        "display. The mock club meetup has already passed; no work or payment is pending.",
+        1800,
+        -7,
+        2,
+        closed=True,
+    ),
+)
+
+# Desired states are reached through the regular application service after all
+# applications have been created as APPLIED. Accepting one closes the gig and
+# rejects its other pending applications in the same transaction.
+APPLICATIONS = (
+    ("DEMO: React landing page for the robotics club", "applicant1", ApplicationStatus.APPLIED),
+    ("DEMO: React landing page for the robotics club", "applicant2", ApplicationStatus.APPLIED),
+    ("DEMO: Python script to clean a lab survey dataset", "applicant3", ApplicationStatus.APPLIED),
+    ("DEMO: Campus event poster and social graphics", "applicant2", ApplicationStatus.REJECTED),
+    ("DEMO: Campus event poster and social graphics", "applicant3", ApplicationStatus.APPLIED),
+    (
+        "DEMO: Improve queries for a student society database",
+        "applicant1",
+        ApplicationStatus.ACCEPTED,
+    ),
+    (
+        "DEMO: Improve queries for a student society database",
+        "applicant2",
+        ApplicationStatus.APPLIED,
+    ),
+    ("DEMO: Connect a club site to a public event API", "applicant3", ApplicationStatus.ACCEPTED),
+    ("DEMO: Connect a club site to a public event API", "applicant1", ApplicationStatus.APPLIED),
+)
 
 
-def _get_or_create_poster(db, email: str, roll_no: str, dept: str, batch: int) -> User:
-    user = db.scalar(select(User).where(User.email == email))
-    if user is not None:
-        return user
-    user = User(
-        email=email,
-        password_hash=hash_password(SEED_PASSWORD),
-        roll_no=roll_no,
-        dept=dept,
-        batch=batch,
-    )
-    db.add(user)
-    db.flush()
-    return user
+def _assert_local_development_database() -> None:
+    parsed = urlsplit(settings.database_url)
+    database_name = parsed.path.lstrip("/")
+    if (
+        settings.environment.lower() != "development"
+        or parsed.hostname not in {"localhost", "127.0.0.1"}
+        or parsed.port != 5434
+        or parsed.username != "campusgig"
+        or database_name != "campusgig"
+    ):
+        raise RuntimeError(
+            "Refusing to seed: DATABASE_URL must target the local development database "
+            "campusgig on localhost:5434 with ENVIRONMENT=development."
+        )
+
+
+def _get_demo_accounts(db: Session) -> tuple[dict[str, User], int]:
+    accounts: dict[str, User] = {}
+    missing: list[DemoAccount] = []
+
+    for account in ACCOUNTS:
+        user = db.scalar(select(User).where(User.email == account.email))
+        if user is not None:
+            if (
+                user.roll_no != account.roll_no
+                or user.dept != account.department
+                or user.batch != account.batch
+                or user.role is not UserRole.STUDENT
+            ):
+                raise RuntimeError(
+                    f"Refusing to reuse {account.email}: it is not the expected demo account."
+                )
+            accounts[account.key] = user
+            continue
+
+        roll_owner = db.scalar(select(User).where(User.roll_no == account.roll_no))
+        if roll_owner is not None:
+            raise RuntimeError(
+                f"Refusing to create {account.email}: demo roll number {account.roll_no} "
+                "is already in use."
+            )
+        missing.append(account)
+
+    if missing:
+        password = getpass("Choose a password for newly created demo accounts: ")
+        confirmation = getpass("Confirm the demo account password: ")
+        if password != confirmation:
+            raise RuntimeError("Passwords did not match; no demo accounts were created.")
+
+        requests = [
+            RegisterRequest(
+                email=account.email,
+                password=password,
+                roll_no=account.roll_no,
+                dept=account.department,
+                batch=account.batch,
+            )
+            for account in missing
+        ]
+        for account, request in zip(missing, requests, strict=True):
+            accounts[account.key] = auth_service.register(db, request)
+
+    return accounts, len(missing)
+
+
+def _get_or_create_gigs(db: Session, poster: User) -> tuple[dict[str, Gig], int]:
+    now = datetime.now(UTC)
+    gigs: dict[str, Gig] = {}
+    created = 0
+    for spec in GIGS:
+        gig = db.scalar(select(Gig).where(Gig.title == spec.title))
+        if gig is not None:
+            if gig.poster_id != poster.id:
+                raise RuntimeError(f"Refusing to reuse {spec.title!r}: it belongs to another user.")
+            gigs[spec.title] = gig
+            continue
+
+        gig = Gig(
+            poster_id=poster.id,
+            title=spec.title,
+            description=spec.description,
+            category=spec.category,
+            budget=spec.budget,
+            deadline=now + timedelta(days=spec.deadline_days),
+            duration_days=spec.duration_days,
+            state=GigState.CLOSED if spec.closed else GigState.OPEN,
+        )
+        db.add(gig)
+        db.flush()
+        gigs[spec.title] = gig
+        created += 1
+    db.commit()
+    return gigs, created
+
+
+def _seed_applications(
+    db: Session, poster: User, users: dict[str, User], gigs: dict[str, Gig]
+) -> tuple[int, int]:
+    created = 0
+    changed = 0
+    rows: list[tuple[Application, ApplicationStatus]] = []
+
+    for gig_title, applicant_key, target_status in APPLICATIONS:
+        gig = gigs[gig_title]
+        applicant = users[applicant_key]
+        application = db.scalar(
+            select(Application).where(
+                Application.gig_id == gig.id,
+                Application.applicant_id == applicant.id,
+            )
+        )
+        if application is None:
+            if gig.state is not GigState.OPEN:
+                print(f"Skipped new application for already-closed gig: {gig.title}")
+                continue
+            application = application_service.apply_to_gig(db, gig.id, applicant, None)
+            created += 1
+        rows.append((application, target_status))
+
+    for application, target_status in rows:
+        if target_status is ApplicationStatus.APPLIED:
+            continue
+        if application.status is not ApplicationStatus.APPLIED:
+            continue  # Preserve any status changed by a person after the first seed.
+        if (
+            application.gig.state is GigState.CLOSED
+            and target_status is not ApplicationStatus.ACCEPTED
+        ):
+            continue
+        application_service.set_status(db, application.id, poster, target_status)
+        changed += 1
+
+    return created, changed
 
 
 def seed() -> None:
-    if settings.is_production:
-        sys.exit("Refusing to seed development data into a production environment.")
-
-    random.seed(20260908)  # stable output across runs
-    now = datetime.now(UTC)
-
+    _assert_local_development_database()
     with SessionLocal() as db:
-        posters = [_get_or_create_poster(db, *poster) for poster in POSTERS]
+        users, users_created = _get_demo_accounts(db)
+        gigs, gigs_created = _get_or_create_gigs(db, users["poster"])
+        applications_created, statuses_changed = _seed_applications(
+            db, users["poster"], users, gigs
+        )
 
-        existing = {title for title in db.scalars(select(Gig.title))}
-        created = 0
-        for index, (title, category, description, budget, deadline_days) in enumerate(GIGS):
-            if title in existing:
-                continue
-            db.add(
-                Gig(
-                    poster_id=posters[index % len(posters)].id,
-                    title=title,
-                    description=description,
-                    category=category,
-                    budget=budget,
-                    deadline=now + timedelta(days=deadline_days),
-                    state=GigState.OPEN,
-                    created_at=now - timedelta(hours=index * 7 + 1),
-                )
-            )
-            created += 1
-
-        # One closed gig so the "only OPEN gigs are listed" filter is observably
-        # doing something rather than passing by default.
-        closed_title = "Archived: help wiring the old lab display"
-        if closed_title not in existing:
-            db.add(
-                Gig(
-                    poster_id=posters[0].id,
-                    title=closed_title,
-                    description="This gig is closed and must never appear in the dashboard.",
-                    category=GigCategory.OTHER,
-                    budget=500,
-                    deadline=now + timedelta(days=2),
-                    state=GigState.CLOSED,
-                )
-            )
-            created += 1
-
-        db.commit()
-
-    print(f"Seeded {len(posters)} posters and {created} gigs.")
-    print(f"Seed accounts use the password: {SEED_PASSWORD}")
+    print(
+        "Demo seed complete: "
+        f"{users_created} accounts, {gigs_created} gigs, "
+        f"{applications_created} applications added; "
+        f"{statuses_changed} application decisions applied."
+    )
+    print("Demo login emails:")
+    for account in ACCOUNTS:
+        print(f"  {account.email}")
+    if users_created:
+        print("Newly created accounts use the password entered at the secure prompt.")
+    else:
+        print("Existing account passwords were left unchanged.")
 
 
 if __name__ == "__main__":

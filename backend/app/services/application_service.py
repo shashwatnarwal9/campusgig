@@ -19,6 +19,7 @@ from app.models.application import Application, ApplicationStatus
 from app.models.gig import GigState
 from app.models.user import User
 from app.repositories import application_repo, gig_repo
+from app.services.gig_service import MAX_PAGE_SIZE
 
 # Only the gig owner drives these, and only forwards.
 ALLOWED_TRANSITIONS: dict[ApplicationStatus, set[ApplicationStatus]] = {
@@ -52,8 +53,19 @@ def apply_to_gig(
     return application
 
 
-def list_mine(db: Session, applicant: User) -> list[Application]:
-    return application_repo.list_for_applicant(db, applicant.id)
+def list_mine(
+    db: Session,
+    applicant: User,
+    *,
+    status: ApplicationStatus | None = None,
+    page: int = 1,
+    page_size: int = 12,
+) -> tuple[list[Application], int, int]:
+    page_size = min(page_size, MAX_PAGE_SIZE)
+    items, total = application_repo.list_for_applicant(
+        db, applicant.id, status=status, page=page, page_size=page_size
+    )
+    return items, total, max(1, -(-total // page_size))
 
 
 def my_summary(db: Session, applicant: User) -> dict[str, Decimal | int]:

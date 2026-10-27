@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { StatCard } from '../components/applications/StatCard';
+import { Pagination } from '../components/gigs/Pagination';
 import { StatusPill } from '../components/applications/StatusPill';
 import { Alert } from '../components/ui/Alert';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -25,31 +26,30 @@ export function AppliedGigsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('ALL');
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      setData(await applicationApi.mine(signal));
+      setData(await applicationApi.mine({
+        page,
+        page_size: 12,
+        status: filter === 'ALL' ? undefined : filter,
+      }, signal));
     } catch (caught) {
       if (signal?.aborted) return;
       setError(errorMessage(caught));
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
-  }, []);
+  }, [filter, page]);
 
   useEffect(() => {
     const controller = new AbortController();
     void load(controller.signal);
     return () => controller.abort();
   }, [load]);
-
-  const visible = useMemo(
-    () =>
-      (data?.items ?? []).filter((item) => filter === 'ALL' || item.status === filter),
-    [data, filter],
-  );
 
   if (loading && !data) {
     return (
@@ -123,14 +123,14 @@ export function AppliedGigsPage() {
             type="button"
             aria-selected={filter === option}
             className={`chip${filter === option ? ' chip--active' : ''}`}
-            onClick={() => setFilter(option)}
+            onClick={() => { setFilter(option); setPage(1); }}
           >
             {option === 'ALL' ? 'All' : formatCategory(option)}
           </button>
         ))}
       </div>
 
-      {visible.length === 0 ? (
+      {data?.items.length === 0 ? (
         <EmptyState
           title={filter === 'ALL' ? 'No applications yet' : 'Nothing in this state'}
           description={
@@ -151,7 +151,7 @@ export function AppliedGigsPage() {
           animate="visible"
           variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.04 } } }}
         >
-          {visible.map((item) => (
+          {data?.items.map((item) => (
             <motion.li
               key={item.id}
               className="application-row"
@@ -192,6 +192,16 @@ export function AppliedGigsPage() {
           ))}
         </motion.ul>
       )}
+      {data && data.total > 0 ? (
+        <Pagination
+          page={data.page}
+          totalPages={data.total_pages}
+          total={data.total}
+          onChange={setPage}
+          itemLabel="application"
+          ariaLabel="Application pages"
+        />
+      ) : null}
     </div>
   );
 }

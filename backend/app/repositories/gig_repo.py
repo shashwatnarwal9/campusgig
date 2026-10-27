@@ -99,14 +99,23 @@ def get_for_update(db: Session, gig_id: uuid.UUID) -> Gig | None:
     )
 
 
-def list_for_poster(db: Session, poster_id: uuid.UUID) -> list[Gig]:
-    return list(
+def list_for_poster(
+    db: Session, poster_id: uuid.UUID, *, page: int = 1, page_size: int = 12
+) -> tuple[list[Gig], int]:
+    conditions = [Gig.poster_id == poster_id]
+    total = db.scalar(select(func.count()).select_from(Gig).where(*conditions)) or 0
+    rows = (
         db.scalars(
-            select(Gig).where(Gig.poster_id == poster_id).order_by(Gig.created_at.desc())
+            select(Gig)
+            .where(*conditions)
+            .order_by(Gig.created_at.desc(), Gig.id)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
         )
         .unique()
         .all()
     )
+    return list(rows), total
 
 
 def create(

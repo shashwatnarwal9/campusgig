@@ -2,28 +2,36 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { EmptyState } from '../components/ui/EmptyState';
+import { Pagination } from '../components/gigs/Pagination';
 import { Alert } from '../components/ui/Alert';
 import { Spinner } from '../components/ui/Spinner';
 import { formatBudget, formatCategory, formatDate, formatPostedAgo } from '../lib/format';
 import { errorMessage } from '../services/apiClient';
 import { gigApi } from '../services/gigApi';
-import type { GigDetail } from '../types/gig';
+import type { GigDetail, Page } from '../types/gig';
 
 export function MyGigsPage() {
-  const [gigs, setGigs] = useState<GigDetail[] | null>(null);
+  const [result, setResult] = useState<Page<GigDetail> | null>(null);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
+    setLoading(true);
+    setError(null);
     gigApi
-      .mine(controller.signal)
-      .then(setGigs)
+      .mine({ page, page_size: 12 }, controller.signal)
+      .then(setResult)
       .catch((caught: unknown) => {
         if (controller.signal.aborted) return;
         setError(errorMessage(caught));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, []);
+  }, [page]);
 
   return (
     <div className="dashboard">
@@ -38,13 +46,13 @@ export function MyGigsPage() {
 
       {error ? <Alert tone="error">{error}</Alert> : null}
 
-      {gigs === null && !error ? (
+      {loading && !error ? (
         <div className="dashboard__loading">
           <Spinner label="Loading your gigs" />
         </div>
       ) : null}
 
-      {gigs?.length === 0 ? (
+      {!loading && result?.total === 0 ? (
         <EmptyState
           title="You haven't posted any gigs yet"
           description="Post a gig and it will appear here for you to manage."
@@ -56,9 +64,10 @@ export function MyGigsPage() {
         />
       ) : null}
 
-      {gigs && gigs.length > 0 ? (
+      {!loading && result && result.items.length > 0 ? (
+        <>
         <div className="gig-grid">
-          {gigs.map((gig) => (
+          {result.items.map((gig) => (
             <article className="gig-card" key={gig.id}>
               <div className="gig-card__top">
                 <span className="tag">{formatCategory(gig.category)}</span>
@@ -100,6 +109,8 @@ export function MyGigsPage() {
             </article>
           ))}
         </div>
+        <Pagination page={result.page} totalPages={result.total_pages} total={result.total} onChange={setPage} />
+        </>
       ) : null}
     </div>
   );

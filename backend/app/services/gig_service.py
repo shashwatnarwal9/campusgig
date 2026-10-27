@@ -78,5 +78,9 @@ def create_gig(db: Session, poster: User, data: GigCreate) -> Gig:
     return gig
 
 
-def list_my_gigs(db: Session, poster: User) -> list[Gig]:
-    return gig_repo.list_for_poster(db, poster.id)
+def list_my_gigs(
+    db: Session, poster: User, *, page: int = 1, page_size: int = 12
+) -> tuple[list[Gig], int, int]:
+    page_size = min(page_size, MAX_PAGE_SIZE)
+    items, total = gig_repo.list_for_poster(db, poster.id, page=page, page_size=page_size)
+    return items, total, max(1, -(-total // page_size))

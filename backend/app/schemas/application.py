@@ -58,3 +58,7 @@ class ApplicationSummary(BaseModel):
 class MyApplications(BaseModel):
     summary: ApplicationSummary
     items: list[MyApplication]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int

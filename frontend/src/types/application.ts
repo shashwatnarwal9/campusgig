@@ -35,4 +35,8 @@ export interface ApplicationSummary {
 export interface MyApplications {
   summary: ApplicationSummary;
   items: MyApplication[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
 }

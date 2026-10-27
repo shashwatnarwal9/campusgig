@@ -71,11 +71,39 @@ python -m venv .venv
 pip install -e ".[dev]"
 cp .env.example .env             # then fill in real values
 alembic upgrade head
-python -m app.seeds.seed_gigs    # development gig data, optional
+python -m app.seeds.seed_gigs    # optional, safe local demo data
 uvicorn app.main:app --reload --port 8000
 ```
 
 API docs at http://localhost:8000/docs.
+
+### Demo data
+
+With the local Docker database running and the development `.env` pointing to
+`campusgig` on `localhost:5434`, run the seeder from `backend`:
+
+```bash
+python -m app.seeds.seed_gigs
+```
+
+On first run, it securely prompts for a password and confirmation for the four
+fictional `@thapar.edu` demo accounts. Newly created accounts share that
+password; it is hashed through the normal registration service and is never
+printed or saved by the seeder. Keep the chosen password securely. Reruns do not
+change existing account passwords. The seeder refuses non-development or
+non-local database targets, adds only missing records, and can be run again
+without duplicating its clearly marked demo gigs or applications.
+
+Demo login emails:
+
+- `demo.poster@thapar.edu`
+- `demo.applicant1@thapar.edu`
+- `demo.applicant2@thapar.edu`
+- `demo.applicant3@thapar.edu`
+
+Use the password chosen at the first seed run. If it is lost, use an existing
+account password or update the password through a secure administrative
+process; rerunning the seeder intentionally will not reset it.
 
 ### Frontend
 

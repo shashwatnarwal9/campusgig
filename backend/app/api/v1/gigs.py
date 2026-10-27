@@ -53,10 +53,24 @@ def create_gig(payload: GigCreate, db: DbSession, current_user: CurrentUser):
     return gig_service.create_gig(db, current_user, payload)
 
 
-@router.get("/mine", response_model=list[GigDetail])
-def my_gigs(db: DbSession, current_user: CurrentUser):
+@router.get("/mine", response_model=Page[GigDetail])
+def my_gigs(
+    db: DbSession,
+    current_user: CurrentUser,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=gig_service.MAX_PAGE_SIZE)] = 12,
+):
     """Declared before /{gig_id} so "mine" is not parsed as a UUID."""
-    return gig_service.list_my_gigs(db, current_user)
+    items, total, total_pages = gig_service.list_my_gigs(
+        db, current_user, page=page, page_size=page_size
+    )
+    return Page[GigDetail](
+        items=[GigDetail.model_validate(gig) for gig in items],
+        page=page,
+        page_size=page_size,
+        total=total,
+        total_pages=total_pages,
+    )
 
 
 @router.get("/{gig_id}", response_model=GigDetail)

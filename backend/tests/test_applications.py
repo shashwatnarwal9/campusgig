@@ -121,7 +121,30 @@ def test_my_gigs_lists_only_mine(client, logged_in, db):
     db.commit()
 
     mine = client.get(f"{GIGS}/mine").json()
-    assert [g["title"] for g in mine] == ["Build a small internal dashboard"]
+    assert [g["title"] for g in mine["items"]] == ["Build a small internal dashboard"]
+    assert mine["total"] == 1
+    assert mine["page"] == 1
+
+
+def test_my_gigs_paginates_with_total_and_page_boundaries(client, logged_in):
+    logged_in()
+    for index in range(3):
+        assert client.post(GIGS, json=gig_payload(title=f"Gig {index}")).status_code == 201
+
+    first = client.get(f"{GIGS}/mine?page=1&page_size=2").json()
+    second = client.get(f"{GIGS}/mine?page=2&page_size=2").json()
+    beyond = client.get(f"{GIGS}/mine?page=3&page_size=2").json()
+
+    assert first["total"] == second["total"] == beyond["total"] == 3
+    assert first["total_pages"] == 2
+    assert len(first["items"]) == 2
+    assert len(second["items"]) == 1
+    assert beyond["items"] == []
+
+
+def test_my_gigs_rejects_page_size_above_maximum(client, logged_in):
+    logged_in()
+    assert client.get(f"{GIGS}/mine?page_size=51").status_code == 422
 
 
 # --- applying --------------------------------------------------------------
@@ -197,6 +220,52 @@ def test_my_applications_summary_starts_empty(client, logged_in):
     assert body["items"] == []
     assert body["summary"]["total"] == 0
     assert float(body["summary"]["earned"]) == 0.0
+    assert body["total"] == 0
+    assert body["total_pages"] == 1
+
+
+def test_my_applications_paginates_and_filters_without_changing_summary(client, logged_in, db):
+    logged_in()
+    other = make_other_student(db)
+    for index in range(3):
+        gig = Gig(
+            poster_id=other.id,
+            title=f"Proofread document {index}",
+            description="Language pass plus formatting.",
+            category="WRITING",
+            budget=3000,
+            deadline=datetime.now(UTC) + timedelta(days=9),
+        )
+        db.add(gig)
+        db.commit()
+        assert client.post(
+            f"{GIGS}/{gig.id}/apply", json={"message": f"app {index}"}
+        ).status_code == 201
+
+    # Keep the summary global while the listing count reflects the selected status.
+    applications = list(db.scalars(select(Application).order_by(Application.created_at)))
+    applications[0].status = ApplicationStatus.ACCEPTED
+    db.commit()
+
+    first = client.get(f"{APPLICATIONS}/me?page=1&page_size=1").json()
+    second = client.get(f"{APPLICATIONS}/me?page=2&page_size=1").json()
+    filtered = client.get(f"{APPLICATIONS}/me?page_size=1&status=APPLIED").json()
+    beyond = client.get(f"{APPLICATIONS}/me?page=4&page_size=1").json()
+
+    assert first["summary"]["total"] == 3
+    assert first["total"] == second["total"] == 3
+    assert first["total_pages"] == 3
+    assert len(first["items"]) == len(second["items"]) == 1
+    assert filtered["summary"]["total"] == 3
+    assert filtered["total"] == 2
+    assert all(item["status"] == "APPLIED" for item in filtered["items"])
+    assert beyond["items"] == []
+    assert beyond["total"] == 3
+
+
+def test_my_applications_rejects_page_size_above_maximum(client, logged_in):
+    logged_in()
+    assert client.get(f"{APPLICATIONS}/me?page_size=51").status_code == 422
 
 
 def test_my_applications_reports_totals(client, logged_in, db):

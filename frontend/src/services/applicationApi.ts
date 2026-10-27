@@ -1,8 +1,15 @@
 import { request } from './apiClient';
 import type { ApplicationStatus, GigApplicant, MyApplication, MyApplications } from '../types/application';
 
+interface MyApplicationsQuery {
+  page?: number;
+  page_size?: number;
+  status?: ApplicationStatus;
+}
+
 export const applicationApi = {
-  mine: (signal?: AbortSignal) => request<MyApplications>('/api/v1/applications/me', { signal }),
+  mine: (query: MyApplicationsQuery, signal?: AbortSignal) =>
+    request<MyApplications>('/api/v1/applications/me', { query: { ...query }, signal }),
 
   setStatus: (applicationId: string, status: ApplicationStatus) =>
     request<MyApplication>(`/api/v1/applications/${applicationId}`, {

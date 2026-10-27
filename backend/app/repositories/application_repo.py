@@ -32,18 +32,29 @@ def get_for_gig_and_applicant(
 
 
 def list_for_applicant(
-    db: Session, applicant_id: uuid.UUID, *, status: ApplicationStatus | None = None
-) -> list[Application]:
+    db: Session,
+    applicant_id: uuid.UUID,
+    *,
+    status: ApplicationStatus | None = None,
+    page: int = 1,
+    page_size: int = 12,
+) -> tuple[list[Application], int]:
     conditions = [Application.applicant_id == applicant_id]
     if status is not None:
         conditions.append(Application.status == status)
-    return list(
+    total = db.scalar(select(func.count()).select_from(Application).where(*conditions)) or 0
+    rows = (
         db.scalars(
-            select(Application).where(*conditions).order_by(Application.created_at.desc())
+            select(Application)
+            .where(*conditions)
+            .order_by(Application.created_at.desc(), Application.id)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
         )
         .unique()
         .all()
     )
+    return list(rows), total
 
 
 def list_for_gig(db: Session, gig_id: uuid.UUID) -> list[Application]:
